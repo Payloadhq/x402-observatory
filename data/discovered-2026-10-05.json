@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-10-05T23:19:42.849Z",
+  "sources": [
+    "cdp",
+    "payai"
+  ],
+  "perSource": {
+    "cdp": {
+      "name": "CDP x402 Bazaar",
+      "itemsSeen": 35011,
+      "junkRemoved": 0,
+      "usableListings": 35011
+    },
+    "payai": {
+      "name": "PayAI Bazaar",
+      "itemsSeen": 14515,
+      "junkRemoved": 1,
+      "usableListings": 14514
+    }
+  },
+  "totalItemsSeen": 49526,
+  "totalJunkRemoved": 1,
+  "rawRecordCount": 49525,
+  "optionKeysGenerated": 75088,
+  "uniqueKeys": 71250,
+  "newKeys": 50,
+  "updatedKeys": 71200,
+  "dupInPull": 3838,
+  "staleMarked": 0,
+  "registryTotal": 71259
+}
