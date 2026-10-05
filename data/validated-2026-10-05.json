@@ -1,0 +1,174 @@
+{
+  "generatedAt": "2026-10-05T22:56:11.704Z",
+  "validatedCount": 12,
+  "results": [
+    {
+      "key": "https://api.onesource.io/standard/v1/exit-pressure/history|eip155:8453|exact",
+      "url": "https://api.onesource.io/standard/v1/exit-pressure/history",
+      "verdict": "VALID_402",
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 677,
+      "live": {
+        "x402Version": 2,
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "20000",
+        "scheme": "exact"
+      },
+      "checkedAt": "2026-10-05T22:56:03.868Z"
+    },
+    {
+      "key": "https://api.jarvisclaw.ai/v1/marketplace/api/3686|solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp|exact",
+      "url": "https://api.jarvisclaw.ai/v1/marketplace/api/3686",
+      "verdict": "VALID_402",
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 554,
+      "live": {
+        "x402Version": 2,
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "2070",
+        "scheme": "exact"
+      },
+      "checkedAt": "2026-10-05T22:56:04.422Z"
+    },
+    {
+      "key": "https://agent402.tools/api/coin-categories|eip155:42220|exact",
+      "url": "https://agent402.tools/api/coin-categories",
+      "verdict": "VALID_402",
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 422,
+      "live": {
+        "x402Version": 2,
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "5000",
+        "scheme": "exact"
+      },
+      "checkedAt": "2026-10-05T22:56:04.844Z"
+    },
+    {
+      "key": "https://tempo.halowerk.com/v1/pruef/tempo/tls-zeit/stylesheet|eip155:8453|exact",
+      "url": "https://tempo.halowerk.com/v1/pruef/tempo/tls-zeit/stylesheet",
+      "verdict": "VALID_402",
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 772,
+      "live": {
+        "x402Version": 2,
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "1000",
+        "scheme": "exact"
+      },
+      "checkedAt": "2026-10-05T22:56:05.616Z"
+    },
+    {
+      "key": "https://pay.edge-agents.ai/v1/services/eur-fx-leveraged-positioning-momentum|solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp|exact",
+      "url": "https://pay.edge-agents.ai/v1/services/eur-fx-leveraged-positioning-momentum",
+      "verdict": "VALID_402",
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 504,
+      "live": {
+        "x402Version": 2,
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "10000",
+        "scheme": "exact"
+      },
+      "checkedAt": "2026-10-05T22:56:06.121Z"
+    },
+    {
+      "key": "https://agentshelf.syntexa.ch/v1/case-swap|eip155:8453|exact",
+      "url": "https://agentshelf.syntexa.ch/v1/case-swap",
+      "verdict": "NOT_X402",
+      "status": "DEGRADED",
+      "detail": "HTTP 404 (expected 402 challenge)",
+      "responseMs": 850,
+      "live": null,
+      "checkedAt": "2026-10-05T22:56:06.972Z"
+    },
+    {
+      "key": "https://api.marketintelligenceapi.com/api/v1/intelligence/positioning/:symbol|eip155:8453|exact",
+      "url": "https://api.marketintelligenceapi.com/api/v1/intelligence/positioning/:symbol",
+      "verdict": "VALID_402",
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 761,
+      "live": {
+        "x402Version": 2,
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "10000",
+        "scheme": "exact"
+      },
+      "checkedAt": "2026-10-05T22:56:07.734Z"
+    },
+    {
+      "key": "https://market.datapackvibe.com/x402/assistant-schema-hashicorp-vault-a2b4dc13-validate|eip155:8453|exact",
+      "url": "https://market.datapackvibe.com/x402/assistant-schema-hashicorp-vault-a2b4dc13-validate",
+      "verdict": "NOT_X402",
+      "status": "DEGRADED",
+      "detail": "HTTP 405 (expected 402 challenge)",
+      "responseMs": 711,
+      "live": null,
+      "checkedAt": "2026-10-05T22:56:08.445Z"
+    },
+    {
+      "key": "https://brasil-dados-api.onrender.com/economy/ptax|solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp|exact",
+      "url": "https://brasil-dados-api.onrender.com/economy/ptax",
+      "verdict": "VALID_402",
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 546,
+      "live": {
+        "x402Version": 2,
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "5000",
+        "scheme": "exact"
+      },
+      "checkedAt": "2026-10-05T22:56:08.992Z"
+    },
+    {
+      "key": "https://agentkyb.andy229651.workers.dev/mcp-x402|eip155:8453|exact",
+      "url": "https://agentkyb.andy229651.workers.dev/mcp-x402",
+      "verdict": "NOT_X402",
+      "status": "DEGRADED",
+      "detail": "HTTP 405 (expected 402 challenge)",
+      "responseMs": 369,
+      "live": null,
+      "checkedAt": "2026-10-05T22:56:09.361Z"
+    },
+    {
+      "key": "https://api.vextorium.com/v1/evm-balance-12-chains|solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp|exact",
+      "url": "https://api.vextorium.com/v1/evm-balance-12-chains",
+      "verdict": "NOT_X402",
+      "status": "DEGRADED",
+      "detail": "HTTP 200 (expected 402 challenge)",
+      "responseMs": 703,
+      "live": null,
+      "checkedAt": "2026-10-05T22:56:10.065Z"
+    },
+    {
+      "key": "https://api.magentlab.com/api/calc/shapiro|eip155:8453|exact",
+      "url": "https://api.magentlab.com/api/calc/shapiro",
+      "verdict": "VALID_402",
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 589,
+      "live": {
+        "x402Version": 2,
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "5000",
+        "scheme": "exact"
+      },
+      "checkedAt": "2026-10-05T22:56:10.654Z"
+    }
+  ]
+}

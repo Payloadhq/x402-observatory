@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-10-05T22:39:14.709Z",
+  "sources": [
+    "cdp"
+  ],
+  "rawRecordCount": 34998,
+  "uniqueKeys": 58949,
+  "newKeys": 58949,
+  "updatedKeys": 0,
+  "dupInPull": 1592,
+  "staleMarked": 0,
+  "registryTotal": 58949
+}

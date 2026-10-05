@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-10-05T22:45:29.047Z",
+  "sources": [
+    "payai"
+  ],
+  "rawRecordCount": 14513,
+  "uniqueKeys": 14360,
+  "newKeys": 12260,
+  "updatedKeys": 2100,
+  "dupInPull": 153,
+  "staleMarked": 0,
+  "registryTotal": 71209
+}

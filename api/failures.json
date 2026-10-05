@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-10-05T23:02:42.852Z",
+  "validatedN": 12,
+  "verdicts": {
+    "VALID_402": 8,
+    "NOT_X402": 4
+  },
+  "topFailureModes": [
+    {
+      "mode": "NOT_X402: HTTP 405 (expected 402 challenge)",
+      "count": 2
+    },
+    {
+      "mode": "NOT_X402: HTTP 200 (expected 402 challenge)",
+      "count": 1
+    },
+    {
+      "mode": "NOT_X402: HTTP 404 (expected 402 challenge)",
+      "count": 1
+    }
+  ],
+  "note": "Failure modes observed from single non-paying GET probes. UNREACHABLE includes DNS/TCP/TLS/timeout errors."
+}

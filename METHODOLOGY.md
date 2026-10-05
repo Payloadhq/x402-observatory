@@ -1,83 +1,154 @@
 # Payload X402 Observatory — Methodology
 
-**Version:** 1.0 · **First scan:** 2026-10-05
-**Scanner:** `scanner/scan.js` (zero-dependency Node.js) · **UA:** `Payload-X402-Observatory (+https://payloadhq.github.io/)`
+**Version:** 2.0 · **First scan:** 2026-10-05 · **Scale-up:** 2026-10-05
+**Pipeline:** `scanner/ingest-bazaar.js` → `scanner/validate.js` → `scanner/build-dashboard.js` (zero-dependency Node.js)
+**UA:** `Payload-X402-Observatory (+https://payloadhq.github.io/)`
 
 ## What this is
 
 A public, continuously updated measurement of the operational health of publicly
 discoverable x402 resources. Every number on the dashboard comes from an actual
-scan run. No estimates, no demo metrics.
+catalog pull or probe. No estimates, no demo metrics, no invented data.
 
-## What we do
+## Three different numbers — never conflated
 
-For each target endpoint, exactly one HTTP GET:
+- **DISCOVERED** — the resource appears in a public, unauthenticated x402 catalog.
+  A listing is *not* evidence the resource works.
+- **VALIDATED** — the Observatory probed the resource at least once with a
+  non-paying HTTP GET.
+- **ACTIVE** — the resource's most recent probe returned a well-formed 402 challenge.
 
-1. Record reachability, HTTP status, response headers, body (first 64 KB).
-2. If status is 402, parse the x402 challenge:
-   - **v2:** `PAYMENT-REQUIRED` (or `X-PAYMENT-REQUIRED`) base64 header decoded as JSON,
-     or JSON body with `x402Version: 2` / `accepts[]`.
-   - **v1:** `X-PAYMENT` header, or JSON body with `paymentRequirements` / `maxAmountRequired`.
-3. Extract: network, asset, amount, payTo presence.
-4. For `/.well-known/x402` manifests: record which fields are present.
-5. Classify:
-   - `VALID_402` — 402 + parseable challenge + complete payment requirements (network, asset, amount)
-   - `DEGRADED` — 402 but requirements incomplete
-   - `MALFORMED` — 402 but challenge unparseable
-   - `UNREACHABLE` — network error or timeout
-   - `NOT_X402` — reachable but no 402
-   - `VALID_MANIFEST` — manifest endpoint returning parseable JSON (informational, not a 402)
+Every aggregate on the dashboard and in the APIs displays the N it is computed over.
 
-## Rate limits and politeness
+## Discovery (ingestion)
 
-- Max **1 request per 2 seconds per host**.
-- **10-second timeout** per request.
-- Identifiable User-Agent on every request.
-- Single GET per target per scan. No retries hammering, no concurrency against one host.
+We consume only public, unauthenticated catalog endpoints — no API keys, no accounts:
+
+| Source | Endpoint | Pagination |
+|---|---|---|
+| CDP x402 Bazaar | `https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources` | `limit` / `offset` (page size 200) |
+| PayAI Bazaar | `https://facilitator.payai.network/discovery/resources` | `limit` / `offset` (page size 200) |
+
+- Max **1 request per 2 seconds per host**, 30s timeout, identifiable User-Agent.
+- Collected per resource: resource URL, service name (host), type, x402 version,
+  payment scheme, network, asset, amount, payTo (**truncated to first 10 chars + "…"**),
+  source catalog, extensions present (bool), lastUpdated, tags, description (≤240 chars).
+- We do **not** scrape private systems, directories behind logins, or facilitator internals.
+
+### Normalization and dedupe
+
+- Canonical key = `normalized-url | network | scheme`. Normalization: lowercase host,
+  strip default ports, strip trailing slashes, drop query strings and fragments.
+- Networks normalized to CAIP-style ids where catalogs differ
+  (e.g. PayAI `base` → `eip155:8453`, `solana` → `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`).
+- Duplicates across facilitators are merged (sources listed per resource).
+- Junk filtered: localhost, loopback, `.local`/`.internal`, `0.0.0.0`, `example.*`,
+  non-HTTP(S) schemes, malformed URLs, entries with no usable payment option.
+- Registry state per resource: FIRST_SEEN, LAST_SEEN, LAST_VALIDATED, SOURCE,
+  STATUS ∈ `DISCOVERED | ACTIVE | DEGRADED | UNREACHABLE | STALE`.
+- Resources absent from a fresh catalog pull are marked **STALE**, never silently deleted.
+
+## Validation
+
+- At most **one non-paying HTTP GET per resource per day** (10s timeout,
+  identifiable User-Agent, ≤1 request per 2 seconds per host).
+- Queue priority: never-validated first (oldest first-seen), then entries not
+  validated in the last 24h (recently-updated catalogs first). Entries failing
+  UNREACHABLE three times consecutively are checked at most weekly.
+- Inspect one live response:
+  - **v2:** `PAYMENT-REQUIRED` base64 header, or JSON body with `x402Version: 2` / `accepts[]`.
+  - **v1:** `X-PAYMENT` header, or JSON body with `paymentRequirements` / `maxAmountRequired`.
+- **Verdicts:**
+  - `VALID_402` — 402 + parseable challenge + complete requirements (network, asset, amount)
+  - `DEGRADED` — 402 but requirements incomplete or challenge unparseable
+  - `MALFORMED` — (rolled into DEGRADED in aggregates)
+  - `UNREACHABLE` — DNS/TCP/TLS/timeout error
+  - `NOT_X402` — reachable but no 402 (treated as DEGRADED for status purposes)
+- Response latency recorded per probe; dashboard shows median and p95 over the
+  validated set.
+- Metadata consistency: live challenge network/scheme compared against catalog entry.
+
+## Metrics
+
+All rates are computed over the **validated** set unless labeled otherwise:
+
+- `VALID_402_RATE` = VALID_402 / validated
+- `DEGRADED_RATE` = (DEGRADED + MALFORMED) / validated
+- `UNREACHABLE_RATE` = UNREACHABLE / validated
+- `STALE_RATE` = STALE / discovered
+- Distributions: V1 vs V2, network share, asset share, payment-scheme share,
+  price buckets (from atomic amounts with known asset decimals; unknown amounts → "unknown";
+  public output uses **buckets only, never exact amounts**)
+- `TOP_FAILURE_MODES` from latest verdict details
+- `MEDIAN` / `P95` response ms
+- `NEW_THIS_WEEK` (firstSeen ≤ 7 days), `GONE_THIS_WEEK` (marked STALE ≤ 7 days)
+
+### Ecosystem health (observable metrics only — never a security score)
+
+Health = valid-402 rate over validated resources:
+
+| Status | Rule |
+|---|---|
+| HEALTHY | valid-402 rate ≥ 90% |
+| MIXED | valid-402 rate 70–90% |
+| DEGRADED | valid-402 rate < 70% |
+| INSUFFICIENT_DATA | fewer than 25 resources validated |
+
+This is an operational diagnostic. It says nothing about the security, safety, or
+trustworthiness of any listed service.
+
+## Historical trending
+
+Daily snapshots at `data/snapshots/YYYY-MM-DD.json` record discovered count,
+validated count, rates, version/network splits, and latency. The dashboard renders
+7-day, 30-day, and all-time windows from whatever snapshots exist (even one).
+
+## Outputs
+
+- `data/registry.json` — durable registry (all states, history per resource)
+- `data/discovered-YYYY-MM-DD.json` — per-pull ingest summary
+- `data/validated-YYYY-MM-DD.json` — per-run validation results
+- `data/snapshots/YYYY-MM-DD.json` — daily aggregate snapshot
+- `api/summary.json` — headline metrics (machine-readable)
+- `api/resources.json` — top 500 resources with status + history (capped)
+- `api/networks.json`, `api/failures.json`, `api/history.json`
+- `dashboard/index.html` — public dashboard
+- `dashboard/check/<slug>.html` — v1 per-endpoint diagnostics (retained)
+
+All APIs are free and public. Corrections/removals: kyler.simmons.partners@gmail.com.
+Listing implies no endorsement or ownership.
 
 ## What we do NOT do
 
 - Never submit payments or economic transactions.
 - Never send credentials, API keys, or auth headers.
-- Never attack, stress-test, or fuzz endpoints.
-- Never bypass authentication or access controls.
-- Never probe endpoints that require auth or are not publicly documented as demos.
-- Never log full wallet addresses (truncated to first 8 chars in code paths; dashboard shows symbols), transaction hashes, or any PII.
-- Never make security-certification claims. Diagnostic pages are operational
-  reachability checks only, labeled as such.
+- Never attack, stress-test, fuzz, or bypass authentication.
+- Never log full wallet addresses, transaction hashes, or any PII.
+- Never make security-certification claims.
+- Never imply a resource works because it is listed in a catalog.
 
-## Target selection
+## Legacy (v1, 2026-10-05)
 
-Endpoints are added **only** when publicly documented as demos:
-
-| Endpoint | Documented at |
-|---|---|
-| `payload-rail.fly.dev/v1/x402/public/evaluate` | Payload's own public API ([revrule-api.html](https://payloadhq.github.io/revrule-api.html)) |
-| `payload-rail.fly.dev/.well-known/x402` | Payload's own x402 manifest |
-| `liquidpad.site/api/x402/verify/…` | [liquidpad-x402-examples README](https://github.com/liquidpadbot/liquidpad-x402-examples) ("curl -i … Returns HTTP/2 402") |
-| `kristo-intelligence-api.onrender.com/api/stats` | [autonomous-agent-x402-usdc-example README](https://github.com/hristovdimitri2-hub/autonomous-agent-x402-usdc-example) (documents 402 contract) |
-
-We do not probe Coinbase production APIs, facilitator internals, or any endpoint
-not explicitly published as a public demo.
-
-## Outputs
-
-- `data/observations-YYYY-MM-DD.json` — raw per-endpoint observations.
-- `api/summary.json` — aggregate counts (machine-readable).
-- `dashboard/index.html` — public dashboard.
-- `dashboard/check/<slug>.html` — per-endpoint diagnostics.
+The original 4-endpoint probe (`scanner/scan.js`, `targets.json`) scanned only
+publicly documented demo endpoints (Payload's own, LiquidPad, Kristo) — it never
+probed undocumented commercial endpoints, and neither does v2. The v1 builder is
+kept as `scanner/build-dashboard-v1.js`; its diagnostic pages remain under
+`dashboard/check/`.
 
 ## Reproducing
 
 ```bash
 cd scanner
-node scan.js            # writes data/observations-<today>.json + api/summary.json
-node build-dashboard.js # writes dashboard/
+node ingest-bazaar.js   # pulls both catalogs → data/registry.json
+node validate.js        # probes queued resources (default max 300/run)
+node build-dashboard.js # writes dashboard/ + api/*.json + snapshot
 ```
 
 ## Limitations
 
 - A single GET cannot verify payment settlement or facilitator behavior.
 - "VALID_402" means the challenge is well-formed, not that paying succeeds.
-- Listings change; an endpoint that was a public demo may be retired — targets are
-  re-verified against their documented sources before each scan expansion.
+- Catalogs are auto-indexed from settled payments; listings include stale,
+  test, and abandoned endpoints — validation exists precisely to separate signal from listing.
+- Validation covers a growing subset of discovered resources; rates are reported
+  over the validated N, never extrapolated to the whole catalog.
