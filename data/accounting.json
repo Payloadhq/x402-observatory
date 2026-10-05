@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-10-05T23:31:41.267Z",
+  "definitions": {
+    "itemSeen": "One raw catalog record returned by a discovery API (one resource listing).",
+    "junkRemoved": "Records dropped before analysis: non-HTTP(S) URLs, localhost/loopback/example domains, malformed URLs, or listings with no usable payment option.",
+    "usableListing": "A catalog listing with a valid resource URL and at least one payment option.",
+    "optionKey": "One canonical payment option (resource URL + network + scheme) expanded from a listing's accepts array.",
+    "uniqueKey": "One deduplicated payment-option key within a source pull.",
+    "finalUnique": "One deduplicated payment-option key across all sources. This is what \"RESOURCES DISCOVERED\" means."
+  },
+  "perSource": {
+    "cdp": {
+      "name": "CDP x402 Bazaar",
+      "itemsSeen": 35011,
+      "junkRemoved": 0,
+      "usableListings": 35011,
+      "uniqueKeys": null,
+      "newKeys": null,
+      "updatedKeys": null,
+      "dupInPull": null
+    },
+    "payai": {
+      "name": "PayAI Bazaar",
+      "itemsSeen": 14515,
+      "junkRemoved": 1,
+      "usableListings": 14514,
+      "uniqueKeys": null,
+      "newKeys": null,
+      "updatedKeys": null,
+      "dupInPull": null
+    }
+  },
+  "totals": {
+    "itemsSeen": 49526,
+    "junkRemoved": 1,
+    "usableListings": 49525,
+    "optionKeysGenerated": 75088,
+    "dupInPull": 3838,
+    "uniqueKeysInPull": 71250,
+    "alreadyKnownKeys": 71200,
+    "newKeysThisPull": 50,
+    "crossSourceKeys": 2102,
+    "finalUnique": 71259
+  },
+  "registryCrossCheck": {
+    "fromCdpOnly": 56897,
+    "fromPayaiOnly": 12260,
+    "fromBoth": 2102,
+    "total": 71259
+  },
+  "registryGeneratedAt": "2026-10-05T23:19:42.849Z"
+}
