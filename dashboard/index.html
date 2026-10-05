@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payload X402 Observatory</title>
+<meta name="description" content="Operational health of publicly discoverable x402 resources. Real scan data, updated continuously.">
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;max-width:960px;margin:0 auto;padding:24px;color:#1a1a1a}
+.hero{background:#0f172a;color:#fff;border-radius:12px;padding:28px;margin-bottom:24px}
+.hero h1{margin:0 0 8px}.hero p{color:#cbd5e1;margin:4px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0}
+.stat{border:1px solid #e5e5e5;border-radius:8px;padding:14px;text-align:center}
+.stat .n{font-size:32px;font-weight:800}.stat .l{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px}
+table{width:100%;border-collapse:collapse;margin:12px 0 28px}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#666;padding:8px;border-bottom:2px solid #e5e5e5}
+td{padding:8px;border-bottom:1px solid #e5e5e5}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:700;color:#fff;font-size:12px}
+.pass{background:#15803d}.degraded{background:#b45309}.fail{background:#b91c1c}
+h2{margin-top:36px;border-bottom:2px solid #0f172a;padding-bottom:6px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+a{color:#1d4ed8}
+.meta{color:#666;font-size:14px}
+footer{margin-top:40px;font-size:13px;color:#888;border-top:1px solid #e5e5e5;padding-top:16px}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}
+</style></head><body>
+<div class="hero">
+<h1>Payload X402 Observatory</h1>
+<p>Operational health of publicly discoverable x402 resources — measured, not claimed.</p>
+<p class="meta">Last scan: 2026-10-05T21:56:36.517Z · Scanner: Payload-X402-Observatory/1.0</p>
+</div>
+
+<h2>Aggregate</h2>
+<div class="grid">
+<div class="stat"><div class="n">4</div><div class="l">Endpoints observed</div></div>
+<div class="stat"><div class="n">3</div><div class="l">Valid 402</div></div>
+<div class="stat"><div class="n">0</div><div class="l">Degraded</div></div>
+<div class="stat"><div class="n">0</div><div class="l">Malformed</div></div>
+<div class="stat"><div class="n">0</div><div class="l">Unreachable</div></div>
+<div class="stat"><div class="n">0</div><div class="l">Not x402</div></div>
+</div>
+
+<div class="cols">
+<div>
+<h2>Version split</h2>
+<table><tr><th>Version</th><th>Count</th></tr><tr><td>v2</td><td>3</td></tr></table>
+<h2>Network distribution</h2>
+<table><tr><th>Network</th><th>Count</th></tr><tr><td>Base (eip155:8453)</td><td>2</td></tr><tr><td>Base (base)</td><td>1</td></tr></table>
+</div>
+<div>
+<h2>Asset distribution</h2>
+<table><tr><th>Asset</th><th>Count</th></tr><tr><td>USDC (0x8335…2913)</td><td>3</td></tr></table>
+<h2>Top failure modes</h2>
+<table><tr><th>Mode</th><th>Count</th></tr><tr><td colspan="2">No failure modes observed in the latest scan.</td></tr></table>
+</div>
+</div>
+
+<h2>Endpoints</h2>
+<table><tr><th>Endpoint</th><th>Status</th><th>Version</th><th>Network</th><th>Asset</th></tr><tr><td><a href="check/payload-evaluate.html">Payload RevRule public evaluate</a></td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>v2</td>
+      <td>Base (eip155:8453)</td>
+      <td>USDC (0x8335…2913)</td></tr>
+<tr><td><a href="check/payload-manifest.html">Payload x402 manifest</a></td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td></tr>
+<tr><td><a href="check/liquidpad-verify.html">LiquidPad x402 verify (demo)</a></td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>v2</td>
+      <td>Base (base)</td>
+      <td>USDC (0x8335…2913)</td></tr>
+<tr><td><a href="check/kristo-stats.html">Kristo Intelligence API stats (demo)</a></td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>v2</td>
+      <td>Base (eip155:8453)</td>
+      <td>USDC (0x8335…2913)</td></tr></table>
+
+<h2 id="methodology">Methodology</h2>
+<p>Each target gets a single HTTP GET with a 10-second timeout and an identifiable
+<code>User-Agent: Payload-X402-Observatory</code>. At most one request per 2 seconds per host.
+We never submit payments, never send credentials, never stress-test, and never log full
+wallet addresses. A 402 response is parsed for x402 version (v1: <code>X-PAYMENT</code>/JSON body;
+v2: <code>PAYMENT-REQUIRED</code> base64 header or <code>accepts[]</code> JSON), network, asset,
+amount, and payTo presence.</p>
+<p><strong>Classifications:</strong> VALID_402 (402 + parseable challenge + complete payment requirements);
+DEGRADED (402 but requirements incomplete); MALFORMED (402, challenge unparseable);
+UNREACHABLE (network error/timeout); NOT_X402 (reachable, no 402).</p>
+<p><strong>Sources:</strong> endpoints are only added when publicly documented as demos —
+Payload's own public endpoints, the LiquidPad x402 examples README, and the
+autonomous-agent-x402-usdc-example README. Full method:
+<a href="https://github.com/Payloadhq">METHODOLOGY.md</a> in the observatory repo.
+Machine-readable aggregates: <a href="../api/summary.json">api/summary.json</a>.</p>
+<p>This is an operational diagnostic, not a security certification.</p>
+
+<footer>Built by <a href="https://payloadhq.github.io/">Payload</a>. Data from live scans;
+re-scan to refresh. Questions: see the methodology.</footer>
+</body></html>

@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-10-05T21:56:36.517Z",
+  "endpointsObserved": 4,
+  "classifications": {
+    "VALID_402": 3,
+    "VALID_MANIFEST": 1
+  },
+  "versionSplit": {
+    "v2": 3
+  },
+  "networkDistribution": {
+    "eip155:8453": 2,
+    "base": 1
+  },
+  "assetDistribution": {
+    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913": 2,
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 1
+  },
+  "topFailureModes": []
+}
