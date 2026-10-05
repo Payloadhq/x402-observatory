@@ -142,6 +142,17 @@ function priceBucket(amountAtomic, decimals) {
   return 'over-$10';
 }
 
+/** Extract the HTTP method declared by the catalog for this resource, if any. */
+function declaredMethod(item) {
+  if (typeof item.method === 'string' && /^[A-Za-z]+$/.test(item.method)) return item.method.toUpperCase();
+  try {
+    const m = item.extensions && item.extensions.bazaar && item.extensions.bazaar.info &&
+      item.extensions.bazaar.info.input && item.extensions.bazaar.info.input.method;
+    if (typeof m === 'string' && /^[A-Za-z]+$/.test(m)) return m.toUpperCase();
+  } catch { /* ignore */ }
+  return null;
+}
+
 /** Extract our normalized record from a raw catalog item. Returns null if junk. */
 function extractItem(sourceId, item) {
   const resource = item.resource || (item.accepts && item.accepts[0] && item.accepts[0].resource);
@@ -177,6 +188,7 @@ function extractItem(sourceId, item) {
     host: serviceName(url),
     serviceName: serviceName(url),
     type: item.type || 'http',
+    declaredMethod: declaredMethod(item),
     x402Version: x402Version ? Number(x402Version) : null,
     options,
     description: desc,
@@ -251,6 +263,7 @@ async function fetchSource(source, maxPages, outDir, pageDelayMs) {
   let page = Math.floor(offset / PAGE_LIMIT);
   const pagesDone = maxPages == null ? Infinity : maxPages;
   let pagesRun = 0;
+  let itemsSeen = 0, junkRemoved = 0;
   const out = fs.createWriteStream(partial, { flags: 'a' });
   while (offset < total && pagesRun < pagesDone) {
     const url = `${source.base}?limit=${PAGE_LIMIT}&offset=${offset}`;
@@ -263,8 +276,10 @@ async function fetchSource(source, maxPages, outDir, pageDelayMs) {
     const pg = res.data.pagination || {};
     if (typeof pg.total === 'number') total = pg.total;
     for (const it of items) {
+      itemsSeen++;
       const rec = extractItem(source.id, it);
       if (rec) { out.write(JSON.stringify(rec) + '\n'); records.push(rec); }
+      else junkRemoved++;
     }
     page++;
     pagesRun++;
@@ -277,7 +292,7 @@ async function fetchSource(source, maxPages, outDir, pageDelayMs) {
   await new Promise(r => out.on('finish', r));
   if (offset >= total) fs.unlinkSync(cp); // fully consumed: clear resume state
   console.log(`  [${source.id}] done: ${records.length} usable records (total reported ${total})`);
-  return { records, seen };
+  return { records, seen, stats: { itemsSeen, junkRemoved } };
 }
 
 async function main() {
@@ -304,24 +319,32 @@ async function main() {
   const sources = onlySource ? SOURCES.filter(s => s.id === onlySource) : SOURCES;
   let allRecords = [];
   const seenInPull = new Set();
+  const sourceStats = {};
   for (const s of sources) {
     console.log(`ingesting ${s.name} ...`);
-    const { records, seen } = await fetchSource(s, maxPages, outDir, s.id === 'payai' ? 3000 : PAGE_MIN_MS);
+    const { records, seen, stats } = await fetchSource(s, maxPages, outDir, s.id === 'payai' ? 3000 : PAGE_MIN_MS);
     for (const k of seen) seenInPull.add(k);
     allRecords = allRecords.concat(records);
+    sourceStats[s.id] = { name: s.name, itemsSeen: stats.itemsSeen, junkRemoved: stats.junkRemoved, usableListings: records.length };
   }
 
   // Merge into registry with dedupe
-  let newKeys = 0, updatedKeys = 0, dupInPull = 0;
+  let newKeys = 0, updatedKeys = 0, dupInPull = 0, optionKeysGenerated = 0;
   const mergedSeen = new Set();
+  const perSourceUnique = {};
+  for (const s of sources) perSourceUnique[s.id] = { uniqueKeys: 0, newKeys: 0, updatedKeys: 0, optionKeys: 0 };
   for (const rec of allRecords) {
     for (const opt of rec.options) {
       const key = canonicalKey(rec, opt);
+      optionKeysGenerated++;
+      perSourceUnique[rec.source].optionKeys++;
       if (mergedSeen.has(key)) { dupInPull++; continue; }
       mergedSeen.add(key);
+      perSourceUnique[rec.source].uniqueKeys++;
       const existing = registry[key];
       if (!existing) {
         newKeys++;
+        perSourceUnique[rec.source].newKeys++;
         registry[key] = {
           key,
           url: rec.url,
@@ -329,6 +352,7 @@ async function main() {
           host: rec.host,
           serviceName: rec.serviceName,
           type: rec.type,
+          declaredMethod: rec.declaredMethod,
           x402Version: rec.x402Version,
           scheme: opt.scheme,
           network: opt.network,
@@ -349,8 +373,10 @@ async function main() {
         };
       } else {
         updatedKeys++;
+        perSourceUnique[rec.source].updatedKeys++;
         existing.lastSeen = date;
         existing.lastCatalogUpdated = rec.lastUpdated || existing.lastCatalogUpdated;
+        if (rec.declaredMethod && !existing.declaredMethod) existing.declaredMethod = rec.declaredMethod;
         if (!existing.sources.includes(rec.source)) existing.sources.push(rec.source);
         if (rec.description && !existing.description) existing.description = rec.description;
         if (rec.quality != null) existing.quality = rec.quality;
@@ -377,7 +403,16 @@ async function main() {
   fs.writeFileSync(pullFile, JSON.stringify({
     generatedAt: now,
     sources: sources.map(s => s.id),
-    rawRecordCount: allRecords.length,
+    // Reproducible accounting:
+    //  raw catalog items seen (per source) -> junk filtered -> usable listings ->
+    //  expanded by accepts options -> dupes removed -> unique payment-option keys.
+    perSource: Object.fromEntries(Object.entries(sourceStats).map(([id, st]) => [
+      id, { ...st, ...perSourceUnique[id] },
+    ])),
+    totalItemsSeen: Object.values(sourceStats).reduce((n, s) => n + s.itemsSeen, 0),
+    totalJunkRemoved: Object.values(sourceStats).reduce((n, s) => n + s.junkRemoved, 0),
+    rawRecordCount: allRecords.length,          // usable listings (post junk filter)
+    optionKeysGenerated,
     uniqueKeys: mergedSeen.size,
     newKeys, updatedKeys, dupInPull, staleMarked, registryTotal: total,
   }, null, 2));
