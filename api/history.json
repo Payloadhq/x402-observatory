@@ -1,26 +1,26 @@
 {
-  "generatedAt": "2026-10-05T23:02:42.852Z",
+  "generatedAt": "2026-10-05T23:32:04.467Z",
   "snapshots": 1,
   "windows": {
     "7d": [
       {
         "date": "2026-10-05",
-        "totalDiscovered": 71209,
-        "valid402Rate": 0.6667
+        "totalDiscovered": 71259,
+        "valid402Rate": 1
       }
     ],
     "30d": [
       {
         "date": "2026-10-05",
-        "totalDiscovered": 71209,
-        "valid402Rate": 0.6667
+        "totalDiscovered": 71259,
+        "valid402Rate": 1
       }
     ],
     "all": [
       {
         "date": "2026-10-05",
-        "totalDiscovered": 71209,
-        "valid402Rate": 0.6667
+        "totalDiscovered": 71259,
+        "valid402Rate": 1
       }
     ]
   }
