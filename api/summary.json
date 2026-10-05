@@ -1,40 +1,89 @@
 {
-  "generatedAt": "2026-10-05T23:02:42.852Z",
-  "note": "DISCOVERED = listed in a public catalog. VALIDATED = probed once by the Observatory. ACTIVE = last probe returned a valid 402. These are three different numbers.",
-  "discovered": 71209,
+  "generatedAt": "2026-10-05T23:32:04.467Z",
+  "note": "DISCOVERED = listed in a public catalog (not operationally tested). VALIDATED = probed once by the Observatory with a method-aware, non-paying request. ACTIVE = last probe returned a valid 402. These are separate numbers.",
+  "states": {
+    "DISCOVERED": "Listed in a public discovery catalog. Not operationally tested.",
+    "VALIDATED": "Probed at least once by the Observatory (non-paying, method-aware request).",
+    "ACTIVE": "Last probe returned a valid, complete 402 payment challenge.",
+    "DEGRADED": "Reachable, but the 402 challenge is incomplete/missing or the catalog listing is inconsistent with live behavior.",
+    "UNREACHABLE": "Network error on last probe (DNS/TCP/TLS/timeout).",
+    "STALE": "No longer present in the source catalog."
+  },
+  "accounting": {
+    "listingsDiscovered": 49525,
+    "resourcesDiscovered": 71259,
+    "catalogItemsSeen": 49526,
+    "junkRemoved": 1,
+    "perSource": {
+      "cdp": {
+        "name": "CDP x402 Bazaar",
+        "itemsSeen": 35011,
+        "junkRemoved": 0,
+        "usableListings": 35011,
+        "uniqueKeys": null,
+        "newKeys": null,
+        "updatedKeys": null,
+        "dupInPull": null
+      },
+      "payai": {
+        "name": "PayAI Bazaar",
+        "itemsSeen": 14515,
+        "junkRemoved": 1,
+        "usableListings": 14514,
+        "uniqueKeys": null,
+        "newKeys": null,
+        "updatedKeys": null,
+        "dupInPull": null
+      }
+    },
+    "definitions": {
+      "itemSeen": "One raw catalog record returned by a discovery API (one resource listing).",
+      "junkRemoved": "Records dropped before analysis: non-HTTP(S) URLs, localhost/loopback/example domains, malformed URLs, or listings with no usable payment option.",
+      "usableListing": "A catalog listing with a valid resource URL and at least one payment option.",
+      "optionKey": "One canonical payment option (resource URL + network + scheme) expanded from a listing's accepts array.",
+      "uniqueKey": "One deduplicated payment-option key within a source pull.",
+      "finalUnique": "One deduplicated payment-option key across all sources. This is what \"RESOURCES DISCOVERED\" means."
+    }
+  },
+  "discovered": 71259,
   "validated": 12,
-  "active": 8,
-  "discoveredOnly": 71197,
-  "degraded": 4,
+  "validatedApplicable": 11,
+  "notApplicable": 1,
+  "active": 11,
+  "discoveredOnly": 71247,
+  "degraded": 1,
   "unreachable": 0,
   "stale": 0,
   "rates": {
-    "valid402Rate": 0.6667,
+    "valid402Rate": 1,
     "degradedRate": 0,
     "unreachableRate": 0,
     "staleRate": 0,
     "validatedShare": 0.0002
   },
   "verdicts": {
-    "VALID_402": 8,
-    "NOT_X402": 4
+    "VALID_402": 11,
+    "NOT_APPLICABLE": 1,
+    "NOT_APPLICABLE_DETAIL": {
+      "MCP_TYPE": 1
+    }
   },
   "versionSplit": {
-    "v2": 69756,
+    "v2": 69806,
     "v1": 1453
   },
   "networkDistribution": {
-    "eip155:8453": 39876,
-    "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": 8713,
+    "eip155:8453": 39897,
+    "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": 8726,
     "eip155:480": 318,
-    "eip155:5042": 685,
-    "eip155:42161": 2534,
-    "eip155:137": 3417,
+    "eip155:5042": 687,
+    "eip155:42161": 2535,
+    "eip155:137": 3427,
     "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": 387,
     "eip155:50": 3,
     "eip155:143": 885,
     "hyperliquid:mainnet": 6,
-    "eip155:84532": 8450,
+    "eip155:84532": 8451,
     "stacks:1": 10,
     "eip155:196": 138,
     "eip155:56": 88,
@@ -45,7 +94,7 @@
     "aws:base": 1,
     "eip155:43114": 676,
     "eip155:1329": 655,
-    "eip155:10": 1243,
+    "eip155:10": 1245,
     "eip155:42220": 606,
     "stellar:pubnet": 601,
     "eip155:42793": 10,
@@ -76,18 +125,18 @@
   },
   "assetDistribution": {
     "31566704": 455,
-    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913": 39703,
-    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": 8763,
+    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913": 39724,
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": 8776,
     "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1": 239,
-    "0x3600000000000000000000000000000000000000": 687,
-    "0xaf88d065e77c8cC2239327C5EDb3A432268e5831": 2533,
+    "0x3600000000000000000000000000000000000000": 689,
+    "0xaf88d065e77c8cC2239327C5EDb3A432268e5831": 2534,
     "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359": 8,
-    "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359": 3390,
+    "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359": 3400,
     "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1": 3,
     "0x754704Bc059F8C67012fEd69BC8A327a5aafb603": 885,
     "USDC:0x6d1e7cde53ba9467b783cb7c530ce054": 6,
     "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 112,
-    "0x036CbD53842c5426634e7929541eC2318f3dCF7e": 8450,
+    "0x036CbD53842c5426634e7929541eC2318f3dCF7e": 8451,
     "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token": 10,
     "0x779Ded0c9e1022225f8E0630b35a9b54bE713736": 56,
     "0xcE24439F2D9C6a2289F741120FE202248B666666": 33,
@@ -101,7 +150,7 @@
     "iso4217:USD": 1,
     "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E": 673,
     "0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392": 652,
-    "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85": 1240,
+    "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85": 1242,
     "0xcebA9300f2b948710d2653dD7B07f33A8B32118C": 606,
     "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75": 568,
     "0x431D5dfF03120AFA4bDf332c61A6e1766eF37BDB": 12,
@@ -154,7 +203,7 @@
     "0xbbA60da06c2c5424f03f7434542280FCAd453d10": 1
   },
   "schemeDistribution": {
-    "exact": 70295,
+    "exact": 70345,
     "batch-settlement": 51,
     "upto": 784,
     "agent-pay": 1,
@@ -168,37 +217,29 @@
     "eip3009": 13
   },
   "priceBuckets": {
-    "under-$0.01": 14468,
-    "unknown": 27733,
-    "$0.10-$1": 2153,
-    "$0.01-$0.10": 26398,
+    "under-$0.01": 14514,
+    "unknown": 27759,
+    "$0.10-$1": 2133,
+    "$0.01-$0.10": 26393,
     "$1-$10": 390,
-    "over-$10": 67
+    "over-$10": 70
   },
   "topFailureModes": [
     {
-      "mode": "NOT_X402: HTTP 405 (expected 402 challenge)",
-      "count": 2
-    },
-    {
-      "mode": "NOT_X402: HTTP 200 (expected 402 challenge)",
-      "count": 1
-    },
-    {
-      "mode": "NOT_X402: HTTP 404 (expected 402 challenge)",
+      "mode": "NOT_APPLICABLE/MCP_TYPE",
       "count": 1
     }
   ],
   "latencyMs": {
     "n": 12,
     "median": 677,
-    "p95": 850
+    "p95": 4309
   },
-  "newThisWeek": 71209,
+  "newThisWeek": 71259,
   "goneThisWeek": 0,
   "health": {
     "status": "INSUFFICIENT_DATA",
-    "reason": "Only 12 resources validated so far; health needs N≥25 validated."
+    "reason": "Only 11 resources validated so far; health needs N≥25 validated (MCP/unsafe-method entries excluded)."
   },
   "sources": [
     "cdp",
