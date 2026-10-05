@@ -88,27 +88,46 @@ function main() {
   const date = now.slice(0, 10);
   const weekAgo = daysAgo(7);
 
+  // ---------- Reproducible count accounting ----------
+  let accounting = null;
+  const accountingPath = path.join(dataDir, 'accounting.json');
+  if (fs.existsSync(accountingPath)) {
+    try { accounting = JSON.parse(fs.readFileSync(accountingPath, 'utf8')); } catch { /* */ }
+  }
+
   // ---------- Core state counts ----------
+  // Six states, kept strictly separate. DISCOVERED implies NOTHING about operability.
   const totalDiscovered = resources.length;
   const validated = resources.filter(r => r.lastValidated != null);
   const totalValidated = validated.length;
+  const applicableValidated = validated.filter(r => ((r.validationHistory || []).slice(-1)[0] || {}).verdict !== 'NOT_APPLICABLE');
+  const totalApplicable = applicableValidated.length;
   const active = resources.filter(r => r.status === 'ACTIVE');
   const degraded = resources.filter(r => r.status === 'DEGRADED');
   const unreachable = resources.filter(r => r.status === 'UNREACHABLE');
   const stale = resources.filter(r => r.status === 'STALE');
   const discoveredOnly = resources.filter(r => r.status === 'DISCOVERED');
+  const notApplicable = validated.filter(r => ((r.validationHistory || []).slice(-1)[0] || {}).verdict === 'NOT_APPLICABLE');
 
-  // Rates are computed over VALIDATED resources only (discovery != validation).
+  // Rates are computed over APPLICABLE validated resources only
+  // (NOT_APPLICABLE = MCP-type or unsafe-method; not HTTP-probed).
   const verdicts = {};
-  for (const r of validated) {
+  for (const r of applicableValidated) {
     const v = (r.validationHistory || []).slice(-1)[0];
     const verdict = v ? v.verdict : 'UNKNOWN';
     verdicts[verdict] = (verdicts[verdict] || 0) + 1;
   }
+  const notApplFM = {};
+  for (const r of notApplicable) {
+    const v = (r.validationHistory || []).slice(-1)[0];
+    verdicts['NOT_APPLICABLE'] = (verdicts['NOT_APPLICABLE'] || 0) + 1;
+    if (v && v.failureMode) notApplFM[v.failureMode] = (notApplFM[v.failureMode] || 0) + 1;
+  }
+  if (notApplicable.length) verdicts['NOT_APPLICABLE_DETAIL'] = notApplFM;
   const valid402 = verdicts['VALID_402'] || 0;
-  const valid402Rate = totalValidated ? valid402 / totalValidated : null;
-  const degradedRate = totalValidated ? ((verdicts['DEGRADED'] || 0) + (verdicts['MALFORMED'] || 0)) / totalValidated : null;
-  const unreachableRate = totalValidated ? (verdicts['UNREACHABLE'] || 0) / totalValidated : null;
+  const valid402Rate = totalApplicable ? valid402 / totalApplicable : null;
+  const degradedRate = totalApplicable ? (verdicts['DEGRADED'] || 0) / totalApplicable : null;
+  const unreachableRate = totalApplicable ? (verdicts['UNREACHABLE'] || 0) / totalApplicable : null;
   const staleRate = totalDiscovered ? stale.length / totalDiscovered : 0;
 
   // ---------- Distributions (over the full discovered set) ----------
@@ -122,13 +141,12 @@ function main() {
     priceBuckets[r.priceBucket || 'unknown'] = (priceBuckets[r.priceBucket || 'unknown'] || 0) + 1;
   }
 
-  // ---------- Failure modes (validated set, latest verdict detail) ----------
+  // ---------- Failure modes (validated set, methodology v2 failureMode) ----------
   const failures = {};
   for (const r of validated) {
     const v = (r.validationHistory || []).slice(-1)[0];
     if (!v || v.verdict === 'VALID_402') continue;
-    const mode = v.verdict === 'UNREACHABLE' ? 'UNREACHABLE: ' + String(v.detail || 'network error').split(':')[0].slice(0, 60)
-      : v.verdict + (v.detail ? ': ' + String(v.detail).slice(0, 90) : '');
+    const mode = v.failureMode ? `${v.verdict}/${v.failureMode}` : v.verdict;
     failures[mode] = (failures[mode] || 0) + 1;
   }
   const topFailures = Object.entries(failures).sort((a, b) => b[1] - a[1]).slice(0, 15)
@@ -148,18 +166,18 @@ function main() {
 
   // ---------- Health (observable metrics only — never a security score) ----------
   let health, healthReason;
-  if (totalValidated < 25) {
+  if (totalApplicable < 25) {
     health = 'INSUFFICIENT_DATA';
-    healthReason = `Only ${totalValidated} resources validated so far; health needs N≥25 validated.`;
+    healthReason = `Only ${totalApplicable} resources validated so far; health needs N≥25 validated (MCP/unsafe-method entries excluded).`;
   } else if (valid402Rate >= 0.9) {
     health = 'HEALTHY';
-    healthReason = `${(valid402Rate * 100).toFixed(1)}% of ${totalValidated} validated resources return a valid 402 challenge (threshold ≥90%).`;
+    healthReason = `${(valid402Rate * 100).toFixed(1)}% of ${totalApplicable} validated resources return a valid 402 challenge (threshold ≥90%).`;
   } else if (valid402Rate >= 0.7) {
     health = 'MIXED';
-    healthReason = `${(valid402Rate * 100).toFixed(1)}% of ${totalValidated} validated resources return a valid 402 challenge (70–90%).`;
+    healthReason = `${(valid402Rate * 100).toFixed(1)}% of ${totalApplicable} validated resources return a valid 402 challenge (70–90%).`;
   } else {
     health = 'DEGRADED';
-    healthReason = `Only ${(valid402Rate * 100).toFixed(1)}% of ${totalValidated} validated resources return a valid 402 challenge (<70%).`;
+    healthReason = `Only ${(valid402Rate * 100).toFixed(1)}% of ${totalApplicable} validated resources return a valid 402 challenge (<70%).`;
   }
 
   // ---------- Snapshot (for 7/30/all-time trending) ----------
@@ -183,9 +201,28 @@ function main() {
   // ---------- Machine-readable APIs ----------
   const summary = {
     generatedAt: now,
-    note: 'DISCOVERED = listed in a public catalog. VALIDATED = probed once by the Observatory. ACTIVE = last probe returned a valid 402. These are three different numbers.',
+    note: 'DISCOVERED = listed in a public catalog (not operationally tested). VALIDATED = probed once by the Observatory with a method-aware, non-paying request. ACTIVE = last probe returned a valid 402. These are separate numbers.',
+    states: {
+      DISCOVERED: 'Listed in a public discovery catalog. Not operationally tested.',
+      VALIDATED: 'Probed at least once by the Observatory (non-paying, method-aware request).',
+      ACTIVE: 'Last probe returned a valid, complete 402 payment challenge.',
+      DEGRADED: 'Reachable, but the 402 challenge is incomplete/missing or the catalog listing is inconsistent with live behavior.',
+      UNREACHABLE: 'Network error on last probe (DNS/TCP/TLS/timeout).',
+      STALE: 'No longer present in the source catalog.',
+    },
+    accounting: accounting ? {
+      listingsDiscovered: accounting.totals.usableListings,
+      resourcesDiscovered: accounting.totals.finalUnique,
+      catalogItemsSeen: accounting.totals.itemsSeen,
+      junkRemoved: accounting.totals.junkRemoved,
+      crossSourceDuplicateKeys: accounting.totals.crossSourceDupes,
+      perSource: accounting.perSource,
+      definitions: accounting.definitions,
+    } : null,
     discovered: totalDiscovered,
     validated: totalValidated,
+    validatedApplicable: totalApplicable,
+    notApplicable: notApplicable.length,
     active: active.length,
     discoveredOnly: discoveredOnly.length,
     degraded: degraded.length,
@@ -244,8 +281,9 @@ function main() {
   }, null, 2));
 
   fs.writeFileSync(path.join(apiDir, 'failures.json'), JSON.stringify({
-    generatedAt: now, validatedN: totalValidated, verdicts, topFailureModes: topFailures,
-    note: 'Failure modes observed from single non-paying GET probes. UNREACHABLE includes DNS/TCP/TLS/timeout errors.',
+    generatedAt: now, validatedN: totalValidated, validatedApplicableN: totalApplicable,
+    verdicts, topFailureModes: topFailures,
+    note: 'Failure modes observed from single non-paying method-aware probes. UNREACHABLE includes DNS/TCP/TLS/timeout errors. METADATA_MISMATCH = catalog listing inconsistent with live behavior (a discovery problem, not an endpoint failure).',
   }, null, 2));
 
   fs.writeFileSync(path.join(apiDir, 'history.json'), JSON.stringify({
@@ -271,7 +309,7 @@ function main() {
       : r.status === 'UNREACHABLE' ? '<span class="badge fail">UNREACHABLE</span>'
       : r.status === 'STALE' ? '<span class="badge stale">STALE</span>'
       : '<span class="badge disc">DISCOVERED</span>';
-    const cta = (v && (v.verdict === 'DEGRADED' || v.verdict === 'MALFORMED'))
+    const cta = (v && v.verdict === 'DEGRADED')
       ? `<br><a data-cta="manifest-check" href="${MANIFEST_CHECK_URL}">Run this configuration through Payload x402 Manifest Check</a>`
       : '';
     const net = r.liveNetwork || r.network || '—';
@@ -286,14 +324,10 @@ function main() {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Payload X402 Observatory</title>
 <meta name="description" content="Operational health of publicly discoverable x402 resources. Real scan data, updated continuously.">
-<!-- INSTRUMENTATION PLAN (not yet instrumented — no tracking backend built):
-     1. All CTA links carry data-cta="<slug>" attributes.
-     2. A future ~5-line JS snippet can attach click listeners on [data-cta] and
-        POST {cta, page, ts} to a privacy-respecting count endpoint (no cookies, no IP storage).
-     3. Dashboard pageviews: GitHub Pages exposes no analytics; when the dashboard
-        moves behind the rail, log hourly-bucketed pageview counts (same privacy model as
-        rail/src/analytics.ts: no IPs, no user agents, no payloads).
-     Until then: OBSERVATORY TRAFFIC = not yet instrumented; CTA CLICKS = not yet instrumented. -->
+<!-- Analytics: privacy-respecting aggregate-only beacon (observatory.js).
+     No cookies, no fingerprinting. Server stores hourly counts only: no IPs,
+     no user agents, no identifiers. Beacon is a silent no-op if unreachable. -->
+<script src="observatory.js" defer></script>
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;max-width:1080px;margin:0 auto;padding:24px;color:#1a1a1a}
 .hero{background:#0f172a;color:#fff;border-radius:12px;padding:28px;margin-bottom:24px}
@@ -321,16 +355,40 @@ code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px;word-br
 <p class="meta">Snapshot: ${esc(now)} · Registry: ${reg.generatedAt ? esc(String(reg.generatedAt).slice(0, 10)) : '—'} · Snapshots: ${snapshots.length}</p>
 </div>
 
-<div class="warn"><strong>Three different numbers:</strong> DISCOVERED = listed in a public catalog ·
-VALIDATED = probed once by the Observatory · ACTIVE = last probe returned a valid 402 challenge.
-A catalog listing is never presented as proof that a resource works.</div>
+<div class="warn"><strong>Six separate numbers:</strong> DISCOVERED ≠ VALIDATED ≠ ACTIVE ≠ DEGRADED ≠ UNREACHABLE ≠ STALE.
+A catalog listing is never presented as proof that a resource works — only live probes determine status.</div>
+
+<h2>What we count (definitions)</h2>
+<table><tr><th>Metric</th><th>Meaning</th></tr>
+<tr><td><strong>LISTINGS DISCOVERED</strong></td><td>Unique usable catalog records seen across public discovery sources.</td></tr>
+<tr><td><strong>RESOURCES DISCOVERED</strong></td><td>Unique payment options (canonical key = resource URL + network + scheme). One listing can expose several.</td></tr>
+<tr><td><strong>DISCOVERED</strong></td><td>Resource is listed in a public catalog. <em>Not operationally tested.</em></td></tr>
+<tr><td><strong>VALIDATED</strong></td><td>Probed at least once by the Observatory with a method-aware, non-paying request.</td></tr>
+<tr><td><strong>ACTIVE</strong></td><td>Last probe returned a valid, complete 402 payment challenge.</td></tr>
+<tr><td><strong>DEGRADED</strong></td><td>Reachable, but the 402 challenge is incomplete/missing, or the catalog listing is inconsistent with live behavior.</td></tr>
+<tr><td><strong>UNREACHABLE</strong></td><td>Network error on last probe (DNS / TCP / TLS / timeout).</td></tr>
+<tr><td><strong>STALE</strong></td><td>No longer present in the source catalog.</td></tr>
+</table>
+
+<h2>Count accounting (reproducible)</h2>
+<p class="meta">How ${totalDiscovered.toLocaleString()} resources trace back to raw catalog data. Full ledger: <a href="../api/summary.json">api/summary.json → accounting</a>.</p>
+<table><tr><th>Step</th><th>Count</th><th>Definition</th></tr>
+${accounting ? `
+<tr><td>Catalog items seen</td><td>${Number(accounting.totals.itemsSeen).toLocaleString()}</td><td>Raw records returned by discovery APIs (CDP + PayAI).</td></tr>
+<tr><td>Junk removed</td><td>${Number(accounting.totals.junkRemoved).toLocaleString()}</td><td>Non-HTTP(S), localhost/loopback/example URLs, malformed, or no usable payment option.</td></tr>
+<tr><td><strong>LISTINGS DISCOVERED</strong></td><td><strong>${Number(accounting.totals.usableListings).toLocaleString()}</strong></td><td>Unique usable catalog records.</td></tr>
+<tr><td>Expanded by accepts options</td><td>→</td><td>Each listing's <code>accepts[]</code> (network × scheme) becomes a canonical payment option.</td></tr>
+<tr><td>Cross-source duplicate keys</td><td>${Number(accounting.totals.crossSourceDupes).toLocaleString()}</td><td>Same payment option listed by both catalogs.</td></tr>
+<tr><td><strong>RESOURCES DISCOVERED</strong></td><td><strong>${Number(accounting.totals.finalUnique).toLocaleString()}</strong></td><td>Unique URL + network + scheme payment options.</td></tr>
+` : '<tr><td colspan="3">Accounting not yet generated — run scanner/accounting.js.</td></tr>'}
+</table>
 
 <h2>Headline metrics</h2>
 <div class="grid">
-<div class="stat"><div class="n">${totalDiscovered.toLocaleString()}</div><div class="l">Discovered</div></div>
+<div class="stat"><div class="n">${totalDiscovered.toLocaleString()}</div><div class="l">Resources discovered</div></div>
 <div class="stat"><div class="n">${totalValidated.toLocaleString()}</div><div class="l">Validated</div></div>
 <div class="stat"><div class="n">${active.length.toLocaleString()}</div><div class="l">Active</div></div>
-<div class="stat"><div class="n">${valid402Rate == null ? '—' : (valid402Rate * 100).toFixed(1) + '%'}</div><div class="l">Valid-402 rate (n=${totalValidated.toLocaleString()})</div></div>
+<div class="stat"><div class="n">${valid402Rate == null ? '—' : (valid402Rate * 100).toFixed(1) + '%'}</div><div class="l">Valid-402 rate (n=${totalApplicable.toLocaleString()})</div></div>
 <div class="stat"><div class="n">${degraded.length.toLocaleString()}</div><div class="l">Degraded</div></div>
 <div class="stat"><div class="n">${unreachable.length.toLocaleString()}</div><div class="l">Unreachable</div></div>
 <div class="stat"><div class="n">${stale.length.toLocaleString()}</div><div class="l">Stale</div></div>
@@ -369,19 +427,22 @@ ${sparkline(snapshots.map(s => ({ label: s.date, value: s.valid402Rate == null ?
 </div>
 </div>
 
-<h2>Top failure modes (validated n=${totalValidated.toLocaleString()})</h2>
+<h2>Top failure modes (applicable validated n=${totalApplicable.toLocaleString()})</h2>
 <table><tr><th>Mode</th><th>Count</th></tr>
 ${topFailures.length ? topFailures.map(f => `<tr><td><code>${esc(f.mode)}</code></td><td>${f.count}</td></tr>`).join('') : '<tr><td colspan="2">No failures observed among validated resources.</td></tr>'}
 </table>
 
 <h2>Resources (showing ${Math.min(120, ranked.length).toLocaleString()} of ${totalDiscovered.toLocaleString()})</h2>
-<p class="meta">Statuses: ACTIVE = last probe returned a valid 402 · DEGRADED = 402 but challenge incomplete/unparseable ·
+<p class="meta">Statuses: ACTIVE = last probe returned a valid 402 · DEGRADED = 402 challenge incomplete/missing or catalog listing inconsistent with live behavior ·
 UNREACHABLE = network error · STALE = no longer in the source catalog · DISCOVERED = not yet probed.
 To request a correction or removal, contact <a href="mailto:${CORRECTION_EMAIL}">${CORRECTION_EMAIL}</a>.
 Listing here implies no endorsement or ownership.</p>
+<input type="search" id="resource-search" placeholder="Search resources…" style="width:100%;padding:8px;font-size:14px;margin-bottom:8px" oninput="for(const r of document.querySelectorAll('#resource-table tbody tr'))r.style.display=r.textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none'">
 <div class="cta-box">Operate one of these endpoints? <a data-cta="monitor" href="${KIT_URL}">Monitor your endpoint with Payload</a> ·
-Building x402 payments? <a data-cta="tooling" href="${KIT_URL}">Use the Payload x402 production tooling</a></div>
-<table><tr><th>Resource</th><th>Status</th><th>Ver</th><th>Network</th><th>Price</th><th>History</th></tr>
+Building x402 payments? <a data-cta="tooling" href="${KIT_URL}">Use the Payload x402 production tooling</a> ·
+CI: <a data-cta="github-x402-manifest-check" href="https://github.com/Payloadhq/x402-manifest-check">x402 Manifest Check action</a> ·
+<a data-cta="github-mcp-readiness-check" href="https://github.com/Payloadhq/mcp-readiness-check">MCP Readiness Check action</a></div>
+<table id="resource-table"><tr><th>Resource</th><th>Status</th><th>Ver</th><th>Network</th><th>Price</th><th>History</th></tr>
 ${serviceRows || '<tr><td colspan="6">No resources yet.</td></tr>'}
 </table>
 
@@ -390,16 +451,28 @@ ${serviceRows || '<tr><td colspan="6">No resources yet.</td></tr>'}
 CDP x402 Bazaar (<code>api.cdp.coinbase.com/platform/v2/x402/discovery/resources</code>) and
 PayAI Bazaar (<code>facilitator.payai.network/discovery/resources</code>), paginated at max
 1 request per 2 seconds. payTo addresses are truncated to 10 chars; amounts are reported
-as price buckets only.</p>
-<p><strong>Validation:</strong> each resource gets at most one non-paying HTTP GET per day
-(10s timeout, identifiable User-Agent). We never submit payments, never send credentials,
-never stress-test. A 402 response is parsed for x402 version, network, asset, amount, and
-payTo presence. Resources absent from a fresh catalog pull are marked STALE, not deleted.</p>
-<p><strong>Verdicts:</strong> VALID_402 (402 + parseable challenge + complete requirements);
-DEGRADED (402 but incomplete/unparseable); UNREACHABLE (network error/timeout);
-NOT_X402 (reachable, no 402). Health = valid-402 rate over validated resources:
-≥90% HEALTHY, 70–90% MIXED, &lt;70% DEGRADED; N&lt;25 → INSUFFICIENT_DATA.
-This is an operational diagnostic, <strong>not a security score</strong>.</p>
+as price buckets only. A catalog <em>listing</em> is not a resource: each listing's
+<code>accepts[]</code> payment options are expanded into canonical keys
+(resource URL + network + scheme). See the accounting table above for the full ledger.</p>
+<p><strong>Validation (v2):</strong> each resource is probed at most once per revalidation
+window with the HTTP method declared in the catalog (<code>method</code> /
+<code>extensions.bazaar.info.input.method</code>), else GET. A single non-paying
+request: 10s timeout, identifiable User-Agent, no payment, no credentials, no stress
+testing. A GET returning 405 is <em>not</em> an endpoint failure — if the server's Allow
+header or the catalog declares POST, one non-paying POST probe (empty body) is made;
+otherwise the verdict is METADATA_MISMATCH (a catalog inconsistency, not an endpoint
+failure). MCP-type and unsafe-method resources are never HTTP-probed (NOT_APPLICABLE).
+Failures are only classified when the appropriate documented method was used.
+Resources absent from a fresh catalog pull are marked STALE, not deleted.</p>
+<p><strong>Verdicts:</strong> VALID_402 (402 + parseable, complete challenge) →
+ACTIVE; DEGRADED (incomplete/missing challenge, or METADATA_MISMATCH / ROUTE_NOT_FOUND);
+UNREACHABLE (DNS/TCP/TLS/timeout); NOT_APPLICABLE (MCP type or unsafe method —
+stays DISCOVERED, excluded from rates). Health = valid-402 rate over applicable
+validated resources: ≥90% HEALTHY, 70–90% MIXED, &lt;70% DEGRADED; N&lt;25 →
+INSUFFICIENT_DATA. This is an operational diagnostic, <strong>not a security score</strong>.</p>
+<p><strong>Validation rotation:</strong> daily stratified sample (~150–200/day) across
+network × discovery source × x402 version × price bucket, max 1 request per host per
+5 minutes, resumable queue. Operators can opt out: <a href="mailto:${CORRECTION_EMAIL}">${CORRECTION_EMAIL}</a>.</p>
 <p>Full method: <a href="https://github.com/Payloadhq/x402-observatory/blob/main/METHODOLOGY.md">METHODOLOGY.md</a> ·
 Machine-readable: <a href="../api/summary.json">summary</a> · <a href="../api/resources.json">resources</a> ·
 <a href="../api/networks.json">networks</a> · <a href="../api/failures.json">failures</a> · <a href="../api/history.json">history</a>.</p>
