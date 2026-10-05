@@ -43,22 +43,41 @@ def create_blob(owner, repo, b64):
 
 def push_tree_commit(owner, repo, branch, files, message):
     """files: {repo_path: local_path}. Creates blobs, tree, commit, updates ref."""
+    import hashlib, time
     base_sha = get_ref(owner, repo, branch)
     base_commit = api('GET', f'/repos/{owner}/{repo}/git/commits/{base_sha}')
     base_tree = base_commit['tree']['sha']
+    # Current tree: skip blobs whose content is unchanged
+    existing = {}
+    try:
+        t = api('GET', f'/repos/{owner}/{repo}/git/trees/{base_tree}?recursive=1')
+        for item in t.get('tree', []):
+            if item['type'] == 'blob':
+                existing[item['path']] = item['sha']
+    except Exception:
+        pass
     tree = []
+    skipped = 0
     for repo_path, local_path in sorted(files.items()):
         with open(local_path, 'rb') as f:
             raw = f.read()
+        git_sha = hashlib.sha1(b'blob %d\x00' % len(raw) + raw).hexdigest()
+        if existing.get(repo_path) == git_sha:
+            skipped += 1
+            continue
         print(f'  blob {repo_path} ({len(raw)} bytes)')
         blob_sha = create_blob(owner, repo, base64.b64encode(raw).decode())
         tree.append({'path': repo_path, 'mode': '100644', 'type': 'blob', 'sha': blob_sha})
+        time.sleep(20)  # pace blob creation to avoid GitHub secondary rate limits
+    if not tree:
+        print(f'nothing changed; {skipped} files already current')
+        return base_sha
     new_tree = api('POST', f'/repos/{owner}/{repo}/git/trees',
                    {'base_tree': base_tree, 'tree': tree})['sha']
     commit = api('POST', f'/repos/{owner}/{repo}/git/commits',
                  {'message': message, 'tree': new_tree, 'parents': [base_sha]})
     api('PATCH', f'/repos/{owner}/{repo}/git/refs/heads/{branch}', {'sha': commit['sha']})
-    print(f'pushed commit {commit["sha"][:8]} to {owner}/{repo}@{branch}')
+    print(f'pushed commit {commit["sha"][:8]} to {owner}/{repo}@{branch} ({len(tree)} files, {skipped} unchanged)')
     return commit['sha']
 
 
@@ -116,6 +135,9 @@ def main():
                 for n in names:
                     full = os.path.join(root, n)
                     rel = os.path.relpath(full, OBS)
+                    # Site root must serve the dashboard as index.html
+                    if rel == os.path.join('dashboard', 'index.html'):
+                        rel = 'index.html'
                     pairs.append((f'x402-observatory/{rel}', full))
         # portal copy lives in the distribution repo dir too
         portal_dir = os.path.expanduser('~/workspace/products/distribution/portal/x402-observatory')
