@@ -1,23 +1,19 @@
 {
-  "generatedAt": "2026-10-05T23:02:42.852Z",
+  "generatedAt": "2026-10-05T23:32:04.467Z",
   "validatedN": 12,
+  "validatedApplicableN": 11,
   "verdicts": {
-    "VALID_402": 8,
-    "NOT_X402": 4
+    "VALID_402": 11,
+    "NOT_APPLICABLE": 1,
+    "NOT_APPLICABLE_DETAIL": {
+      "MCP_TYPE": 1
+    }
   },
   "topFailureModes": [
     {
-      "mode": "NOT_X402: HTTP 405 (expected 402 challenge)",
-      "count": 2
-    },
-    {
-      "mode": "NOT_X402: HTTP 200 (expected 402 challenge)",
-      "count": 1
-    },
-    {
-      "mode": "NOT_X402: HTTP 404 (expected 402 challenge)",
+      "mode": "NOT_APPLICABLE/MCP_TYPE",
       "count": 1
     }
   ],
-  "note": "Failure modes observed from single non-paying GET probes. UNREACHABLE includes DNS/TCP/TLS/timeout errors."
+  "note": "Failure modes observed from single non-paying method-aware probes. UNREACHABLE includes DNS/TCP/TLS/timeout errors. METADATA_MISMATCH = catalog listing inconsistent with live behavior (a discovery problem, not an endpoint failure)."
 }
