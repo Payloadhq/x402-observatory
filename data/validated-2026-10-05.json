@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-05T22:56:11.704Z",
-  "validatedCount": 12,
+  "generatedAt": "2026-10-05T23:31:58.468Z",
+  "validatedCount": 16,
   "results": [
     {
       "key": "https://api.onesource.io/standard/v1/exit-pressure/history|eip155:8453|exact",
@@ -169,6 +169,72 @@
         "scheme": "exact"
       },
       "checkedAt": "2026-10-05T22:56:10.654Z"
+    },
+    {
+      "key": "https://agentshelf.syntexa.ch/v1/case-swap|eip155:8453|exact",
+      "url": "https://agentshelf.syntexa.ch/v1/case-swap",
+      "verdict": "VALID_402",
+      "failureMode": null,
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 1274,
+      "methodUsed": "POST",
+      "live": {
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "3000",
+        "scheme": "exact",
+        "x402Version": 2
+      },
+      "checkedAt": "2026-10-05T23:31:52.222Z"
+    },
+    {
+      "key": "https://market.datapackvibe.com/x402/assistant-schema-hashicorp-vault-a2b4dc13-validate|eip155:8453|exact",
+      "url": "https://market.datapackvibe.com/x402/assistant-schema-hashicorp-vault-a2b4dc13-validate",
+      "verdict": "VALID_402",
+      "failureMode": null,
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 4309,
+      "methodUsed": "POST",
+      "live": {
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "10000",
+        "scheme": "exact",
+        "x402Version": 2
+      },
+      "checkedAt": "2026-10-05T23:31:56.532Z"
+    },
+    {
+      "key": "https://agentkyb.andy229651.workers.dev/mcp-x402|eip155:8453|exact",
+      "url": "https://agentkyb.andy229651.workers.dev/mcp-x402",
+      "verdict": "NOT_APPLICABLE",
+      "failureMode": "MCP_TYPE",
+      "status": "DISCOVERED",
+      "detail": "type=mcp: HTTP probing does not apply",
+      "responseMs": 0,
+      "methodUsed": null,
+      "live": null,
+      "checkedAt": "2026-10-05T23:31:56.532Z"
+    },
+    {
+      "key": "https://api.vextorium.com/v1/evm-balance-12-chains|solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp|exact",
+      "url": "https://api.vextorium.com/v1/evm-balance-12-chains",
+      "verdict": "VALID_402",
+      "failureMode": null,
+      "status": "ACTIVE",
+      "detail": null,
+      "responseMs": 789,
+      "methodUsed": "POST",
+      "live": {
+        "network": "eip155:8453",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount": "5000",
+        "scheme": "exact",
+        "x402Version": 2
+      },
+      "checkedAt": "2026-10-05T23:31:57.321Z"
     }
   ]
 }
