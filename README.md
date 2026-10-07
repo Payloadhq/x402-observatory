@@ -21,20 +21,21 @@ VALIDATED (probed once by the Observatory) · ACTIVE (last probe returned a vali
 ```bash
 cd scanner
 node ingest-bazaar.js   # CDP + PayAI public catalogs → data/registry.json (resumable)
-node validate.js        # one non-paying GET per queued resource (default max 300/run)
+node validate.js        # one method-aware non-paying probe per queued resource (default batch 200/run)
 node build-dashboard.js # dashboard/ + api/*.json + data/snapshots/YYYY-MM-DD.json
 ```
 
-Polite by design: ≤1 req/2s per host, 10-30s timeouts, identifiable User-Agent.
+Polite by design: ingest runs ≤1 req/2s per host with 30s timeouts; validation
+runs ≤1 req/host/5min with 10s timeouts; identifiable User-Agent throughout.
 Never submits payments, never sends credentials, never stress-tests.
 
 ## Latest results (2026-10-05)
 
-- **Discovered:** 71,209 catalog entries (CDP 58,949 + PayAI 14,360, deduped) across 2,854 hosts
-- **Validated:** 12 (random seeded sample) · **Active:** 8
-- Valid-402 rate: 66.7% (n=12) · Failure modes: HTTP 405 ×2, HTTP 200 ×1, HTTP 404 ×1
-- Versions: v2 69,756 · v1 1,453 · Networks: Base 39,876, Solana 8,713, Base Sepolia 8,450…
-- Price buckets: under-$0.01: 14,468 · $0.01-$0.10: 26,398 · $0.10-$1: 2,153 · unknown: 27,733
+- **Discovered:** 71,259 resources (CDP 35,011 + PayAI 14,515 listings seen, deduped)
+- **Validated:** 12 (seeded sample; 11 applicable, 1 MCP-type entry excluded) · **Active:** 11
+- Valid-402 rate: 100% of applicable probes (11/11) · Failure modes: none among applicable probes this run
+- Versions: v2 69,806 · v1 1,453 · Networks: Base 39,897, Solana 8,726, Base Sepolia 8,451…
+- Price buckets: under-$0.01: 14,514 · $0.01-$0.10: 26,393 · $0.10-$1: 2,133 · $1-$10: 390 · over-$10: 70 · unknown: 27,759
 - Ecosystem health: INSUFFICIENT_DATA (needs N≥25 validated)
 
 Validation expands with each run; every metric displays its N.
