@@ -2,6 +2,7 @@
 > PAYLOAD → VEYLINE (flagship) → CALLX402 (action layer) → REVRULE (separate) → developer products → free utilities.
 > This repo: **X402 Observatory by Payload — public operational health of discoverable x402 resources.**
 
+<p align="center"><img src="docs/logo.png" alt="x402-observatory logo" width="200"></p>
 # x402 Observatory
 
 **Public operational health of discoverable x402 resources. By Payload.**
