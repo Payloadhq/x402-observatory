@@ -7,6 +7,8 @@
 
 **Public operational health of discoverable x402 resources. By Payload.**
 
+**Try:** [live dashboard](https://payloadhq.github.io/x402-observatory/) · [machine-readable API](https://payloadhq.github.io/x402-observatory/api/summary.json) · **Run it yourself:** clone + `npm run scan` (see below) · ⭐ Star to follow new scans
+
 Continuously measured, published data on whether publicly listed x402 resources
 actually work: are they reachable, do they return a valid `402`, is the payment
 challenge machine-readable. Real scan data only. No estimates, no demo metrics.
