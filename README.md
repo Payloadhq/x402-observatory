@@ -1,3 +1,7 @@
+> **Payload** — Developer infrastructure for x402, agent payments, and programmable revenue.
+> PAYLOAD → VEYLINE (flagship) → CALLX402 (action layer) → REVRULE (separate) → developer products → free utilities.
+> This repo: **X402 Observatory by Payload — public operational health of discoverable x402 resources.**
+
 # x402 Observatory
 
 **Public operational health of discoverable x402 resources. By Payload.**
