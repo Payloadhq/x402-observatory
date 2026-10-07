@@ -57,3 +57,9 @@ rescues broken x402 calls: when x402 breaks, callx402.
 ## License
 
 This repo ships no LICENSE file. See [Payload](https://payloadhq.github.io/).
+
+---
+
+**More from Payload** · [payloadhq.github.io](https://payloadhq.github.io/) · [all Payload repos](https://github.com/Payloadhq)
+
+Related: [x402-manifest-check](https://github.com/Payloadhq/x402-manifest-check) · [x402-failure-mode-benchmark](https://github.com/Payloadhq/x402-failure-mode-benchmark) · [callx402](https://github.com/Payloadhq/callx402)
