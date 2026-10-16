@@ -92,23 +92,42 @@ function inspectChallenge(res) {
   }
   if (!challenge) {
     const j = tryJson(res.body);
-    if (j && (j.x402Version === 2 || j.accepts)) { challenge = j; version = 2; }
-    else if (j && (j.paymentRequirements || j.payment_requirements || j.error === 'payment required')) {
+    if (j && (j.x402Version === 1 || j.x402Version === '1')) {
+      challenge = j; version = 1;
+    } else if (j && (j.x402Version === 2 || j.x402Version === '2' || j.accepts)) {
+      challenge = j; version = 2;
+    } else if (j && (j.paymentRequirements || j.payment_requirements || j.error === 'payment required')) {
       challenge = j.paymentRequirements || j.payment_requirements || j; version = 1;
     }
   }
   return challenge ? { challenge, version } : { malformed: true };
 }
 
-function checkCompleteness(challenge) {
-  const accepts = challenge.accepts || [];
-  const a = accepts[0] || challenge;
-  const network = a.network || null;
-  const asset = a.asset || null;
-  const amount = a.amount || a.maxAmountRequired || null;
-  const complete = !!(network && asset && amount);
-  const knownNetwork = network && /^(eip155:\d+|solana:[A-Za-z0-9]+)$/.test(network);
-  return { complete, knownNetwork, live: { network, asset, amount: amount != null ? String(amount) : null, scheme: (a.scheme || '').toLowerCase() || null } };
+// Both x402 v1 legacy network slugs and v2 CAIP-2 identifiers are used in
+// public payment challenges. A legacy slug inside a v2 envelope is protocol
+// drift, but not evidence that an endpoint is unpayable.
+const LEGACY_NETWORKS = new Set([
+  'base', 'base-sepolia', 'ethereum', 'ethereum-sepolia',
+  'arbitrum', 'arbitrum-sepolia', 'optimism', 'optimism-sepolia',
+  'polygon', 'polygon-amoy', 'avalanche', 'solana', 'solana-devnet'
+]);
+function inspectNetwork(network, version) {
+  if (typeof network !== 'string') return { known: false, formatDrift: false };
+  if (/^(eip155:\d+|solana:[A-Za-z0-9]+)$/.test(network)) return { known: true, formatDrift: false };
+  const legacy = LEGACY_NETWORKS.has(network.toLowerCase());
+  return { known: legacy, formatDrift: legacy && version === 2 };
+}
+function checkCompleteness(challenge, version) {
+  const accepts = Array.isArray(challenge.accepts) ? challenge.accepts :
+    Array.isArray(challenge.paymentRequirements) ? challenge.paymentRequirements : [];
+  const a = accepts[0] || challenge.paymentRequirements || challenge.payment_requirements || challenge;
+  const network = a?.network || null;
+  const asset = a?.asset || null;
+  const amount = a?.amount ?? a?.maxAmountRequired ?? null;
+  const complete = !!(network && asset && amount !== null && amount !== '');
+  const { known, formatDrift } = inspectNetwork(network, version);
+  return { complete, knownNetwork: known, formatDrift,
+    live: { network, asset, amount: amount != null ? String(amount) : null, scheme: (a?.scheme || '').toLowerCase() || null } };
 }
 
 /**
@@ -129,9 +148,9 @@ async function probe(r) {
 
   const ch = inspectChallenge(res);
   if (ch && !ch.malformed) {
-    const { complete, knownNetwork, live } = checkCompleteness(ch.challenge);
+    const { complete, knownNetwork, formatDrift, live } = checkCompleteness(ch.challenge, ch.version);
     if (complete && knownNetwork) {
-      return { verdict: 'VALID_402', failureMode: null, detail: null, responseMs: res.ms, methodUsed: declared, live: { ...live, x402Version: ch.version } };
+      return { verdict: 'VALID_402', failureMode: null, detail: formatDrift ? 'v2 legacy network slug: compatibility note, not a payment failure' : null, responseMs: res.ms, methodUsed: declared, live: { ...live, x402Version: ch.version } };
     }
     const problems = [];
     if (!complete) problems.push('challenge missing network/asset/amount');
@@ -151,9 +170,9 @@ async function probe(r) {
       if (!p2.ok) return { verdict: 'UNREACHABLE', failureMode: 'CONN_ERROR', detail: p2.error, responseMs: p2.ms, methodUsed: 'POST' };
       const ch2 = inspectChallenge(p2);
       if (ch2 && !ch2.malformed) {
-        const { complete, knownNetwork, live } = checkCompleteness(ch2.challenge);
+        const { complete, knownNetwork, formatDrift, live } = checkCompleteness(ch2.challenge, ch2.version);
         if (complete && knownNetwork) {
-          return { verdict: 'VALID_402', failureMode: null, detail: 'method resolved via Allow header', responseMs: p2.ms, methodUsed: 'POST', live: { ...live, x402Version: ch2.version } };
+          return { verdict: 'VALID_402', failureMode: null, detail: formatDrift ? 'method resolved; v2 legacy network slug' : 'method resolved via Allow header', responseMs: p2.ms, methodUsed: 'POST', live: { ...live, x402Version: ch2.version } };
         }
       }
       return { verdict: 'DEGRADED', failureMode: 'METADATA_MISMATCH', detail: `GET refused (405); POST probed per Allow header, no valid 402 (HTTP ${p2.status})`, responseMs: p2.ms, methodUsed: 'POST' };
@@ -361,4 +380,5 @@ async function main() {
   console.log(JSON.stringify({ probed: results.length, tally }, null, 2));
 }
 
-main().catch(e => { console.error('fatal:', e.message || e); process.exit(1); });
+if (require.main === module) main().catch(e => { console.error('fatal:', e.message || e); process.exit(1); });
+module.exports = { inspectChallenge, inspectNetwork, checkCompleteness, statusFromVerdict };
