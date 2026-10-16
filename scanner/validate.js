@@ -37,6 +37,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { proxyConnectBlocked } = require('./connect-errors');
 const https = require('node:https');
 const http = require('node:http');
 
@@ -144,7 +145,7 @@ async function probe(r) {
   }
 
   const res = await politeRequest(r.url, declared, declared === 'POST' ? {} : null);
-  if (!res.ok) return { verdict: 'UNREACHABLE', failureMode: 'CONN_ERROR', detail: res.error, responseMs: res.ms, methodUsed: declared };
+  if (!res.ok) return { verdict: proxyConnectBlocked(res.error) ? 'PROXY_BLOCKED' : 'UNREACHABLE', failureMode: proxyConnectBlocked(res.error) ? 'PROXY_CONNECT_403' : 'CONN_ERROR', detail: res.error, responseMs: res.ms, methodUsed: declared };
 
   const ch = inspectChallenge(res);
   if (ch && !ch.malformed) {
@@ -167,7 +168,7 @@ async function probe(r) {
     const allow = String(res.headers['allow'] || '').toUpperCase();
     if (allow.includes('POST')) {
       const p2 = await politeRequest(r.url, 'POST', {});
-      if (!p2.ok) return { verdict: 'UNREACHABLE', failureMode: 'CONN_ERROR', detail: p2.error, responseMs: p2.ms, methodUsed: 'POST' };
+      if (!p2.ok) return { verdict: proxyConnectBlocked(p2.error) ? 'PROXY_BLOCKED' : 'UNREACHABLE', failureMode: proxyConnectBlocked(p2.error) ? 'PROXY_CONNECT_403' : 'CONN_ERROR', detail: p2.error, responseMs: p2.ms, methodUsed: 'POST' };
       const ch2 = inspectChallenge(p2);
       if (ch2 && !ch2.malformed) {
         const { complete, knownNetwork, formatDrift, live } = checkCompleteness(ch2.challenge, ch2.version);
@@ -193,6 +194,7 @@ function statusFromVerdict(verdict) {
     case 'VALID_402': return 'ACTIVE';
     case 'DEGRADED': return 'DEGRADED';
     case 'UNREACHABLE': return 'UNREACHABLE';
+    case 'PROXY_BLOCKED': return 'DISCOVERED'; // probing infrastructure failed, not endpoint
     case 'NOT_APPLICABLE': return 'DISCOVERED'; // remains discovered-only; not operationally tested
     default: return 'DISCOVERED';
   }
@@ -247,7 +249,7 @@ async function main() {
   const args = process.argv.slice(2);
   const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : dflt; };
   const outDir = opt('--out', path.join(__dirname, '..', 'data'));
-  const batch = Number(opt('--batch', '200'));
+  const batch = Number(opt('--batch', '75'));
   const seed = Number(opt('--seed', String(new Date().toISOString().slice(0, 10).replace(/-/g, ''))));
   const dry = args.includes('--dry');
   const keysArg = opt('--keys', null);
@@ -317,7 +319,15 @@ async function main() {
     };
     results.push(entry);
     if (!dry) {
-      if (p.verdict !== 'NOT_APPLICABLE') {
+      if (p.verdict === 'PROXY_BLOCKED') {
+        // This probe never reached the endpoint. Preserve all prior validated
+        // status and timestamp; retry later under the ordinary 75/hour budget.
+        r.validationHistory = (r.validationHistory || []).concat([{
+          date, verdict: p.verdict, failureMode: p.failureMode,
+          status: r.status || 'DISCOVERED', responseMs: p.responseMs,
+          detail: p.detail, methodUsed: p.methodUsed
+        }]).slice(-10);
+      } else if (p.verdict !== 'NOT_APPLICABLE') {
         r.status = status;
         r.lastValidated = entry.checkedAt;
         r.validationHistory = (r.validationHistory || []).concat([{
